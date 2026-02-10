@@ -106,4 +106,15 @@ def check_handshake_captured(cap_file, bssid):
     if not os.path.exists(cap_file):
         return False
     returncode, stdout, _ = run_command(['aircrack-ng', cap_file], capture_output=True)
-    return bool(stdout and 'handshake' in stdout.lower() and bssid.lower() in stdout.lower())
+    if not stdout:
+        return False
+
+    # aircrack-ng reports "(1 handshake)" when valid — "0 handshake" is a false positive
+    # Match lines like: "C0:06:C3:EA:B2:38  MyNetwork  WPA (1 handshake)"
+    for line in stdout.splitlines():
+        if bssid.lower() in line.lower():
+            match = re.search(r'\((\d+)\s+handshake', line, re.IGNORECASE)
+            if match and int(match.group(1)) > 0:
+                return True
+
+    return False
